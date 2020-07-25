@@ -1,0 +1,144 @@
+---
+title: "Regression Using Decision Tree and Text Classification using Naive Bayes."
+author: "Valencia Lie"
+date: "25/07/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In the previous report, I have commented about the use of decision tree in order to predict numerical values when there is multi-collinearity between predictors that render a linear regression model utterly obsolete. Here, I will try to use Decision Tree and evaluate it accordingly. In addition, I have also commented on the use of Naive Bayes to classify text because Naive Bayes models assume that all predictors are independent of each other, which makes it suitable for text classification.
+
+# Decision Tree
+
+In this report, I will use dataset of the housing prices in Melbourne using decision tree. 
+
+## Read and pre-processing data
+```{r warning=FALSE, message=FALSE}
+library(tidyverse)
+library(lubridate)
+house <- read_csv("Melbourne_housing.csv")
+```
+
+```{r}
+house <- house %>% 
+  mutate_if(is.character, as.factor) %>% 
+  mutate(Address = as.character(Address)) %>% 
+  mutate(Date = dmy(Date))
+house
+```
+
+```{r}
+anyNA(house)
+
+dim(house)
+
+house %>% 
+  is.na() %>% 
+  colSums()
+```
+
+From the data above, we can tell that there are a lot of missing values which we must either clear or replace. As a rule of thumb, because the number of NA is below 5% of the data, we can delete the rows on the missing data. Since Propertycount only has 3 missing values, Postcode only has 1 missing value and Distance only has 1 missing value, we will delete those row of missing observations. 
+
+```{r}
+house <- house %>% 
+  filter(Propertycount != "NA") %>% 
+  filter(Postcode != "NA") %>% 
+  filter(Distance != "NA")
+
+house %>% 
+  is.na() %>% 
+  colSums()
+
+dim(house)
+```
+
+Although there are a lot of missing values on some columns, I find those columns pretty influential on our predictor. Hence, instead of deleting the entire column, we will replace it with the mean of the data if the column consists of numerical values, or if it is a factor, we will replace it with the mode of the data in that column.
+
+```{r}
+house_nona <- house %>% 
+  drop_na()
+```
+
+```{r}
+house_clean <- house %>% 
+  mutate(YearBuilt = replace_na(YearBuilt, median(house_nona$YearBuilt))) %>% 
+  mutate(Lattitude = replace_na(Lattitude, median(house_nona$Lattitude))) %>% 
+  mutate(Longtitude = replace_na(Longtitude, median(house_nona$Longtitude))) %>% 
+  mutate(Bedroom2 = replace_na(Bedroom2, median(house_nona$Bedroom2))) %>% 
+  mutate(Car = replace_na(Car, median(house_nona$Car))) %>% 
+  mutate(Landsize = replace_na(Landsize, median(house_nona$Landsize))) %>% 
+  mutate(BuildingArea = replace_na(BuildingArea, median(house_nona$BuildingArea))) %>% 
+  mutate(Price = replace_na(Price, median(house_nona$Price))) %>% 
+  mutate(Bathroom = replace_na(Bathroom, median(house_nona$Bathroom)))
+```
+
+In order to make our decision tree less messy, we will try to filter out predictors that have too many levels, or just insignificant to our prediction of price. 
+
+```{r}
+library(GGally)
+ggcorr(house_clean, label = T)
+```
+
+From the plot above, we will filter out columns that have no or very low correlation to price, namely Postcode, Landsize, Car, BuildingArea and Propertycount. 
+
+From columns that have factor data types, we will filter out mainly Type, Suburb (too many levels), Method, SellerG (too many levels) and CouncilArea (too many levels). I will also take out address and date.
+```{r message=FALSE, warning=FALSE}
+str(house_clean)
+house_new <- house_clean %>% 
+  select(c(Rooms, Type, Distance, Bedroom2, Bathroom, Lattitude, Longtitude, Regionname, Price))
+```
+
+##Cross Validation
+
+```{r message=FALSE, warning=FALSE}
+library(rsample)
+set.seed(100)
+idx <- initial_split(data = house_new, strata = Price, prop = 0.8)
+train <- training(idx)
+test <- testing(idx)
+```
+
+##Modelling, model evaluation and tuning
+
+```{r message=FALSE, warning=FALSE, fig.height=30, fig.width=10}
+library(partykit)
+house_tree <- ctree(formula = Price~., train)
+plot(house_tree, type = "simple")
+```
+
+
+```{r warning=FALSE, message=FALSE}
+library(MLmetrics)
+pred <- predict(house_tree, newdata = test)
+RMSE(y_pred = pred, y_true = test$Price)
+range(test$Price)[1]
+
+pred2 <- predict(house_tree, newdata = train)
+RMSE(y_pred = pred2, y_true = train$Price)
+range(train$Price)[1]
+```
+
+##Comparison with linear regression
+
+```{r}
+house_lm <- house_clean %>% 
+  select_if(is.numeric)
+```
+
+```{r message=FALSE, warning=FALSE}
+library(lmtest)
+library(car)
+set.seed(100)
+idx1 <- initial_split(data = house_lm, strata = Price, prop = 0.8)
+train1 <- training(idx1)
+test1 <- testing(idx1)
+model_all <- lm(Price~., data = train1)
+backward <- step(model_all, direction = "backward", trace = F)
+pred0 <- predict(backward, newdata = test1)
+RMSE(y_pred = pred0, y_true = test1$Price)
+range(test1$Price)[1]
+vif(backward)
+```
