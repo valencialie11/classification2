@@ -1,8 +1,14 @@
 ---
-title: "Regression Using Decision Tree and Text Classification using Naive Bayes."
+title: "Regression Using Decision Tree and Text Classification using Naive Bayes"
 author: "Valencia Lie"
 date: "25/07/2020"
-output: html_document
+output: 
+  prettydoc::html_pretty:
+    theme: hpstr
+    highlight: github
+    toc: true
+    number_sections: true
+    df_print: paged
 ---
 
 ```{r setup, include=FALSE}
@@ -13,7 +19,7 @@ In the previous report, I have commented about the use of decision tree in order
 
 # Decision Tree
 
-In this report, I will use dataset of the housing prices in Melbourne using decision tree. 
+In this report, I will use dataset of the housing prices in Melbourne using decision tree and compare with linear regression model. My hypothesis currently would be that a decision tree model is better than a linear regression model, because this dataset have predictors that are both of numerical and factor data types, making decision tree to be more suitable than a linear regression model (that only uses numerical predictors). In addition, there may be multi-collinearity between the predictors in the dataset, such as the column 'rooms', 'bathrooms', and 'bedrooms', making a decision tree model better.
 
 ## Read and pre-processing data
 ```{r warning=FALSE, message=FALSE}
@@ -109,16 +115,11 @@ house_tree <- ctree(formula = Price~., train)
 plot(house_tree, type = "simple")
 ```
 
-
 ```{r warning=FALSE, message=FALSE}
 library(MLmetrics)
 pred <- predict(house_tree, newdata = test)
 RMSE(y_pred = pred, y_true = test$Price)
 range(test$Price)[1]
-
-pred2 <- predict(house_tree, newdata = train)
-RMSE(y_pred = pred2, y_true = train$Price)
-range(train$Price)[1]
 ```
 
 ##Comparison with linear regression
@@ -142,3 +143,262 @@ RMSE(y_pred = pred0, y_true = test1$Price)
 range(test1$Price)[1]
 vif(backward)
 ```
+
+According to the result of the linear regression model, multi-collinearity is not detected (unlike my hypothesis). However, with that being said, the decision tree model performs better than the linear regression model. Based on the root-mean-square, the RMSE of the decision tree model (428142.6) is less than the RMSE of the linear regression model. (469928.6) 
+
+In addition, since a decision tree model is highly susceptible to over-fitting, we will try to detect that problem.
+
+```{r}
+pred2 <- predict(house_tree, newdata = train)
+RMSE(y_pred = pred2, y_true = train$Price)
+range(train$Price)[1]
+```
+
+From the above, we can see that using the train dataset, the RMSE is slightly lower than the RMSE of the test dataset. However, the lowest end of the range of price on the train dataset is lower than the lowest end of the range of price on the test dataset.
+
+```{r}
+(((RMSE(y_pred = pred0, y_true = test1$Price) - range(test1$Price)[1]))/(range(test1$Price)[1]))*100
+
+(((RMSE(y_pred = pred2, y_true = train$Price) -
+range(train$Price)[1]))/(range(train$Price)[1]))*100
+```
+
+In terms of percentage, the RMSE of the test dataset is 224% higher than the lowest end of the range of price on the test dataset, whereas the RMSE of the train dataset is 392% higher than the lowest end of the range of price on the train dataset. Hence, we concluded that there is no problem of overfitting.
+
+However, regardless, the decision tree model does not perform very well as the lowest end of the range of price on the test dataset is way less than the RMSE, making this model highly inaccurate and unreliable in predicting future.
+
+##Model Tuning and conclusion
+We will try to tune it through changing the min-split, min-criterion, and min-bucket on the parameters of the decision tree model.
+
+```{r}
+house_tree2 <- ctree(formula = Price~., 
+                     data = train,
+                     control = ctree_control(minbucket = 100,
+                                             mincriterion = 0.95,
+                                             minsplit = 100))
+pred00 <- predict(house_tree2, newdata = test)
+RMSE(y_pred = pred00, y_true = test$Price)
+range(test$Price)[1]
+```
+
+I have tried to tweak the model a few times and I could not bring the RMSE down further than the initial decision tree model. 
+
+In conclusion, I would say that for this dataset, the decision tree model fares better than a linear regression model. However, it is very likely that decision tree is not the most suitable model for this dataset prediction due to the relatively large RMSE in comparison to the lowest range of the test dataset.
+
+#Text classification using Naive Bayes
+
+In this report, I will try to classify a bunch of job postings using Naive Bayes.
+
+## Read data and pre-processing
+```{r warning = FALSE, message = FALSE}
+library(stringr)
+job <- read_csv("fake_job_postings.csv")
+head(job)
+```
+
+Because we are only focusing the text from the column of description, we will remove other irrelevant columns. We will also select the column fraudulent because it will be our target. (0 for real, 1 for fake)
+
+For simplicity sake, we will also remove rows that contain missing values.
+
+```{r}
+job_clean <- job %>% 
+  select(c(description, fraudulent)) %>% 
+  mutate(fraudulent = as.factor(fraudulent)) %>% 
+  drop_na() %>% 
+  mutate(description = str_to_lower(description))
+```
+
+
+##Corpus
+```{r warning=FALSE, message=FALSE}
+library(tm)
+description.corpus <- VCorpus(VectorSource(job_clean$description))
+```
+
+##Removal of numbers, words and punctuations
+
+```{r warning=FALSE, message=FALSE}
+description.corpus <- tm_map(description.corpus, FUN = removeNumbers)
+library(stopwords)
+description.corpus <- tm_map(description.corpus, removeWords, stopwords("english"))
+description.corpus <- tm_map(description.corpus, removePunctuation)
+```
+
+##Stemming
+```{r warning=FALSE, message=FALSE}
+library(SnowballC)
+description.corpus <- tm_map(description.corpus, stemDocument)
+```
+
+## Removal of white space
+```{r}
+description.corpus <- tm_map(description.corpus, stripWhitespace)
+```
+
+##Tokenisation
+```{r}
+description_dtm <- DocumentTermMatrix(description.corpus)
+inspect(description_dtm)
+```
+
+## Cross Validation
+We will split the data into train and test dataset with 75% and 25% proportion respectively.
+
+```{r}
+set.seed(50)
+idx <- sample(nrow(description_dtm), nrow(description_dtm)*0.75)
+train <- description_dtm[idx, ]
+test <- description_dtm[-idx, ]
+inspect(train)
+```
+
+
+Next, we will split the target variabel from the job_clean dataset with the same index split previously.
+
+```{r}
+train_target <- job_clean[idx, "fraudulent"]
+test_target <- job_clean[-idx, "fraudulent"]
+```
+
+## Terms chosen
+
+We will only choose terms that appear in more than 1000 documents to lessen the number of predictors.
+```{r}
+desc_freq <- findFreqTerms(description_dtm, 1000)
+length(desc_freq)
+#Subset the column of train-test dataset with just using column which column names are in sms_freq.
+train_freq <- train[, desc_freq]
+test_freq <- test[,desc_freq]
+inspect(train_freq)
+```
+
+##Bernoulli Conversion
+
+Before the modelling part, we need to change all elements of matrix with just 1 or 0 (1 if the corresponding term appears in the document, and 0 otherwise)
+```{r}
+bernoulli_conv <- function(x){
+  x <- as.factor(as.numeric(x > 0))
+}
+
+train_bn <- apply(train_freq, 2, bernoulli_conv)
+test_bn <- apply(test_freq, 2, bernoulli_conv)
+train_bn
+```
+
+## Modelling with Naive Bayes
+
+We will add laplace smoothing into our model because the element matrix is dominantly 0.
+```{r message=FALSE, warning=FALSE}
+library(e1071)
+#model_text <- naiveBayes(x = train_bn, y = train_target, laplace = 1)
+```
+
+There is an error in our model. Based on the error, we can tell that it is because of the imbalance data
+
+##Check proportion of data
+```{r}
+prop.table(table(train_target$fraudulent))
+prop.table(table(test_target$fraudulent))
+```
+
+Since the data is very imbalanced, we need to either do upsample or downsample. Since our data is a lot, we will do downsample because then the limitations of downsample (the variance of data might be lost) do not apply in this case.
+
+##Downsample
+```{r warning = FALSE, message=FALSE}
+set.seed(100)
+splitted <- initial_split(data = job_clean, prop = 0.75, strata = "fraudulent")
+train2 <- training(splitted)
+test2 <- testing(splitted)
+
+library(caret)
+train_down <- downSample(x = train2[,1] , y = train2$fraudulent, yname = "fraudulent")
+
+test_down <- downSample(x = test2[,1] , y = test2$fraudulent, yname = "fraudulent")
+```
+
+```{r warning=FALSE, message=FALSE}
+train.corpus <- VCorpus(VectorSource(train_down$description))
+test.corpus <- VCorpus(VectorSource(test_down$description))
+```
+
+
+```{r warning=FALSE, message=FALSE}
+train.corpus <- tm_map(train.corpus, FUN = removeNumbers)
+train.corpus <- tm_map(train.corpus, removeWords, stopwords("english"))
+train_down.corpus <- tm_map(train.corpus, removePunctuation)
+
+test.corpus <- tm_map(test.corpus, FUN = removeNumbers)
+test.corpus <- tm_map(test.corpus, removeWords, stopwords("english"))
+test.corpus <- tm_map(test.corpus, removePunctuation)
+
+```
+
+
+```{r warning=FALSE, message=FALSE}
+library(SnowballC)
+train.corpus <- tm_map(train.corpus, stemDocument)
+test.corpus <- tm_map(test.corpus, stemDocument)
+```
+
+```{r}
+train.corpus <- tm_map(train.corpus, stripWhitespace)
+test.corpus <- tm_map(test.corpus, stripWhitespace)
+```
+
+```{r}
+train_dtm <- DocumentTermMatrix(train.corpus)
+test_dtm <- DocumentTermMatrix(test.corpus)
+```
+
+```{r}
+train_freq2 <- findFreqTerms(train_dtm, 50)
+test_freq2 <- findFreqTerms(test_dtm, 50)
+length(train_freq2)
+length(test_freq2)
+train_freq00 <- train_dtm[, train_freq2]
+test_freq00 <- test_dtm[,test_freq2]
+```
+
+```{r}
+train_bn00 <- apply(train_freq00, 2, bernoulli_conv)
+test_bn00 <- apply(test_freq00, 2, bernoulli_conv)
+
+model_text <- naiveBayes(x = train_bn00, y = train_down$fraudulent, laplace = 1)
+
+prediction <- predict(model_text, newdata = test_bn00)
+```
+
+##Model evaluation
+
+### Confusion Matrix
+```{r}
+confusionMatrix(data = prediction, reference = test_down$fraudulent, positive = "1")
+```
+
+In this case, we will prioritise the recall metric over precision because it is worse to predict a fake job listing as a real one (applicants can get scammed) rather than predicting a real job listing as fake (at most applicants just won't apply for that job listing and it is not so grave as there are other job listings available).
+
+From this confusion matrix, the recall is 0.7349 whereas the accuracy is 0.7269 and the precision is 0.7233. I would say this model fares quite well (>70% in all 3 metrics)
+
+### ROC/AUC
+```{r message = FALSE, warning = FALSE}
+library(ROCR)
+prob <- predict(model_text, newdata = test_bn00, type = "raw")
+head(prob)
+
+pred_roc <- prediction(predictions = prob[,1],
+           labels = as.numeric(ifelse(test_down$fraudulent == "1", "1", "0")))
+
+roc <- performance(pred_roc, measure = "tpr", x.measure = "fpr")
+
+plot(roc)
+```
+
+```{r}
+auc <- performance(pred_roc, "auc")
+auc@y.values
+```
+
+Based on the plot of ROC as well as AUC, this model fares very badly. This is because the value of AUC is very far from 1. This means that the probability that the model ranks a random positive example more highly than a random negative example is very very low (20%).
+
+## Conclusion
+Although this model fares well in terms of confusion matrix, it fares badly in terms of ROC and AUC. This may be possible because confusion matrix only measures the metrics at a given threshold (in this case 0.5), whereas ROC measures it at every threshold possible. Regardless of it, this model either needs improvement or this dataset is just not suitable for naive bayes modelling. 

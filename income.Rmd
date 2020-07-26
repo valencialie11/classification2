@@ -2,16 +2,12 @@
 title: "Income Evaluation"
 author: "Valencia Lie"
 date: "20/07/2020"
-<<<<<<< HEAD
 output: 
   rmdformats::readthedown:
     highlight: kate
     toc: 6
     number_sections: true
     df_print: paged
-=======
-output: html_document
->>>>>>> 92302fbe6fe3681c58675e37f63a258ba19f0ca6
 ---
 
 ```{r setup, include=FALSE}
@@ -20,7 +16,6 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Problem at hand
 This report attempts to predict whether someone has an income of over 50k USD or below 50k USD a year based on several parameters:
-<<<<<<< HEAD
 
 - age: the age of an individual
 
@@ -51,28 +46,7 @@ the entry represents
 
 - native-country: country of origin for an individual
 
-=======
-bout an individual:
-- age: the age of an individual
-- workclass: a general term to represent the employment status of an individual
-- fnlwgt: final weight. In other words, this is the number of people the census believes
-the entry represents
-- education: the highest level of education achieved by an individual.
-- education­num: the highest level of education achieved in numerical form.
-- marital­status: marital status of an individual. Married­civ­spouse corresponds to a
-civilian spouse while Married­AF­spouse is a spouse in the Armed Forces.
-- occupation: the general type of occupation of an individual
-- relationship: represents what this individual is relative to others. For example an
-individual could be a Husband. Each entry only has one relationship attribute and is
-somewhat redundant with marital status. We might not make use of this attribute at all
-- race: Descriptions of an individualâ€™s race
-- sex: the biological sex of the individual
-- capital­gain: capital gains for an individual
-- capital­loss: capital loss for an individual
-- hours­per­week: the hours an individual has reported to work per week
-- native­country: country of origin for an individual
->>>>>>> 92302fbe6fe3681c58675e37f63a258ba19f0ca6
-- the label: whether or not an individual makes more than $50,000 annually.
+
 
 Data set is taken from kaggle.com.
 
@@ -81,16 +55,12 @@ Data set is taken from kaggle.com.
 - Cross validation
 - Check whether data is balanced or not
 - Model #1: Naive Bayes
-<<<<<<< HEAD
-=======
 - Predict future data with Naive Bayes
->>>>>>> 92302fbe6fe3681c58675e37f63a258ba19f0ca6
 - Model evaluation for Naive Bayes:
   - Disadvantages of Naive Bayes
   - Confusion Matrix
   - ROC/AUC
 - Model #2: Decision Tree
-<<<<<<< HEAD
 - Model evaluation for Decision Tree: 
   - Confusion Matrix
   - Disadvantages of Decision Tree
@@ -99,22 +69,9 @@ Data set is taken from kaggle.com.
   - Disadvantages
 - Comparison and final conclusion
 
-#Read data and cleansing
-```{r message=FALSE, warning=FALSE}
-=======
-- Predict future data with Decision Tree
-- Model evaluation for Decision Tree: 
-  - Disadvantages of Decision Tree
-  - Confusion Matrix
-- (possible) Model #3: Random forest:
-  - Advantages and how it works
-  - Disadvantages
-- Tuning final model between Naive Bayes and Decision Tree
-- Final conclusion
 
 #Read data and cleansing
 ```{r}
->>>>>>> 92302fbe6fe3681c58675e37f63a258ba19f0ca6
 library(tidyverse)
 income <- read_csv("income_evaluation.csv")
 ```
@@ -132,11 +89,7 @@ income
 ```
 
 # Cross Validation
-<<<<<<< HEAD
 ```{r message=FALSE, warning=FALSE}
-=======
-```{r}
->>>>>>> 92302fbe6fe3681c58675e37f63a258ba19f0ca6
 library(rsample)
 set.seed(100)
 idx <- initial_split(data = income, prop = 0.8, strata = income )
@@ -154,20 +107,12 @@ prop.table(table(train$income))
 Since it is relatively balanced (not like 90:10 or 95:5), we can move on.
 
 #Model 1: Naive Bayes
-<<<<<<< HEAD
 ```{r message=FALSE, warning=FALSE}
 library(e1071)
 model_naive <- naiveBayes(income ~., train)
 #no laplace is needed
 pred <- predict(model_naive, test, type = "class")
 prob <- predict(model_naive, test, type = "raw")
-=======
-```{r}
-library(e1071)
-model_naive <- naiveBayes(income ~., train)
-#no laplace is needed
-pred <- predict(model_naive, test, response = "class")
->>>>>>> 92302fbe6fe3681c58675e37f63a258ba19f0ca6
 ```
 
 # Evaluation of model
@@ -176,11 +121,8 @@ pred <- predict(model_naive, test, response = "class")
 Naive Bayes are like what its name suggests: naive. Its algorithm thinks that all predictors are independent of each other, which may not always be true. For example, in this data set, there is a column which indicates a person's number of educational years attended as well as their last graduated education degree. Logically, of course we know that someone who graduated with a Master's degree will inevitably have larger number of educational years than someone who graduated with a Bachelor's degree, because in order to graduate with a Master's degree, you need to have a Bachelor's degree first. Hence these predictors are not likely to be completely independent, unlike what this Naive Bayes model had suggested, which may then interfere with our model's reliability in predicting future model.
 
 ##Confusion Matrix
-<<<<<<< HEAD
+
 ```{r message=FALSE, warning=FALSE}
-=======
-```{r}
->>>>>>> 92302fbe6fe3681c58675e37f63a258ba19f0ca6
 library(caret)
 confusionMatrix(data = pred, reference = test$income, positive = ">50K")
 ```
@@ -191,7 +133,6 @@ In this particular problem, it is hard to see which metric is more useful (eg re
 
 ##ROC/AUC
 
-<<<<<<< HEAD
 ```{r message=FALSE, warning=FALSE}
 library(ROCR)
 roc <- prediction(predictions = prob[,2], labels = as.numeric(ifelse(test$income == ">50K", 1, 0)))
@@ -318,6 +259,3 @@ With that being said, I still think Naive Bayes and Decision Tree are two very p
 
 I will discuss both cases in separate reports. Do check them out.
 
-
-=======
->>>>>>> 92302fbe6fe3681c58675e37f63a258ba19f0ca6
